@@ -1,0 +1,35 @@
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+ 
+</head>
+<body style="margin:0">
+	<iframe id="main_frame"   src="https://www.elahmad.com/tv/stream_player.php?playlist=https://zad-za.github.io/11/11arab.m3u?id=a" allowfullscreen style="width: 100%; height: 100%"></iframe>
+		
+<script>
+/* Get the element you want displayed in fullscreen */ 
+var elem = document.getElementById("main_frame");
+
+/* Function to open fullscreen mode */
+function openFullscreen() {
+  /* If fullscreen mode is available, show the element in fullscreen */
+  if (
+    document.fullscreenEnabled || 
+    document.webkitFullscreenEnabled || /* Safari */
+    document.msFullscreenEnabled || /* IE11 */
+  ) {
+   
+    /* Show the element in fullscreen */
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen(); 
+    } else if (elem.webkitRequestFullscreen) { /* Safari */
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE11 */
+      elem.msRequestFullscreen();
+    }
+  }
+}
+</script>
+</body>
+</html>
