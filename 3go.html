@@ -1,0 +1,294 @@
+<html>
+<head><base href=""><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- <meta http-equiv="refresh" content="2;btn-load"> -->
+<title>Online v9</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+:root {
+  --primary-bg: #1a1a1a;
+  --secondary-bg: #2d2d2d;
+  --text-color: #ffffff;
+  --border-color: #404040;
+}
+
+body {
+  background-color: var(--primary-bg);
+  color: var(--text-color);
+  font-family: Arial, sans-serif;
+  margin: 0;
+}
+
+.player-container {
+  display: flex;
+  height: 100vh;
+  padding: 20px;
+  gap: 20px;
+}
+
+.video-section {
+  flex: 1;
+  background: var(--secondary-bg);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.playlist-section {
+  width: 300px;
+  background: var(--secondary-bg);
+  border-radius: 8px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+#videoPlayer {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #000;
+  border-radius: 4px;
+}
+
+.channel-item {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.3s;
+  display: flex;
+  align-items: center;
+}
+
+.channel-item:hover {
+  background-color: rgba(255,255,255,0.1);
+}
+
+.channel-logo {
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.controls {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.quality-selector {
+  background: var(--secondary-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.url-input {
+  width: 100%;
+  padding: 8px;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.m3u-input-group {
+  margin-bottom: 10px;
+}
+
+.btn-load {
+  background: #404040;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-load:hover {
+  background: #505050;
+}
+</style>
+</head>
+<body>
+
+<div class="player-container">
+  <div class="video-section">
+    <input type="text" class="url-input" id="streamUrl" placeholder="Enter stream URL (HLS/M3U8/RTMP/MP4)">
+    <video id="videoPlayer" controls></video>
+    <div class="controls">
+      <select class="quality-selector" id="qualitySelector">
+        <option value="auto">Auto Quality</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="playlist-section">
+    <h4>Channel List</h4>
+    <div class="m3u-input-group">
+      <input type="file" id="m3uFileInput" accept=".m3u,.m3u8" class="form-control mb-2" style="background: var(--secondary-bg); color: var(--text-color); border-color: var(--border-color);">
+      <div class="input-group mb-2">
+        <input type="text" id="m3uUrlInput" class="form-control" placeholder="Enter M3U URL" style="background: var(--secondary-bg); color: var(--text-color); border-color: var(--border-color);" value="https://zad-za.github.io/11/11arab.m3u">
+        <button class="btn-load" id="loadM3uUrl" href="https://zad-za.github.io/11/11arab.m3u" method="get" type="reload" value="click();">Load</button>
+      </div>
+    </div>
+    <div id="channelList">
+      <!-- Channel items will be populated here -->
+    </div>
+  </div>
+</div>
+<script>
+const player = document.getElementById('videoPlayer');
+const streamUrlInput = document.getElementById('streamUrl');
+const qualitySelector = document.getElementById('qualitySelector');
+const channelList = document.getElementById('channelList');
+const m3uFileInput = document.getElementById('m3uFileInput');
+const m3uUrlInput = document.getElementById('m3uUrlInput');
+const loadM3uUrlBtn = document.getElementById('loadM3uUrl');
+
+// Initialize HLS
+const hls = new Hls();
+
+function parseM3U(content) {
+    const channels = [];
+    const lines = content.split('\n');
+    let currentChannel = {};
+    
+    lines.forEach(line => {
+        line = line.trim();
+        if (line.startsWith('#EXTINF:')) {
+            currentChannel = {};
+            const infoLine = line.substring(8);
+            
+            const tvgLogoMatch = line.match(/tvg-logo="([^"]+)"/);
+            if (tvgLogoMatch) {
+                currentChannel.logo = tvgLogoMatch[1];
+            }
+            
+            const nameMatch = infoLine.match(/,(.+)$/);
+            if (nameMatch) {
+                currentChannel.name = nameMatch[1].trim();
+            }
+        } else if (line.startsWith('http') || line.startsWith('https')) {
+            currentChannel.url = line;
+            if (Object.keys(currentChannel).length > 0) {
+                channels.push({...currentChannel});
+            }
+        }
+    });
+    
+    return channels;
+}
+
+function populateChannelList(channels) {
+    channelList.innerHTML = '';
+    channels.forEach(channel => {
+        const channelDiv = document.createElement('div');
+        channelDiv.className = 'channel-item';
+        
+        let logoHtml = '';
+        if (channel.logo) {
+            logoHtml = `<img src="${channel.logo}" class="channel-logo" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 fill=%22%23555%22/><text x=%2250%%22 y=%2250%%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22white%22>📺</text></svg>';">`;
+        } else {
+            logoHtml = '<span class="channel-logo">📺</span>';
+        }
+        
+        channelDiv.innerHTML = `
+            ${logoHtml}
+            <span>${channel.name || 'Unnamed Channel'}</span>
+        `;
+        
+        channelDiv.onclick = () => {
+            streamUrlInput.value = channel.url;
+            initializePlayer(channel.url);
+        };
+        
+        channelList.appendChild(channelDiv);
+    });
+}
+
+async function loadM3UFromUrl(url) {
+    try {
+        const response = await fetch(url);
+        const content = await response.text();
+        const channels = parseM3U(content);
+        populateChannelList(channels);
+    } catch (error) {
+        console.error('Error loading M3U:', error);
+        alert('Failed to load M3U file from URL');
+    }
+}
+
+function initializePlayer(url) {
+    if (Hls.isSupported()) {
+        hls.loadSource(url);
+        hls.attachMedia(player);
+        hls.on(Hls.Events.MANIFEST_PARSED, function(event, data) {
+            qualitySelector.innerHTML = '<option value="auto">Auto Quality</option>';
+            data.levels.forEach((level, index) => {
+                qualitySelector.innerHTML += `<option value="${index}">${level.height}p</option>`;
+            });
+            player.play();
+        });
+    } else if (player.canPlayType('application/vnd.apple.mpegurl')) {
+        player.src = url;
+        player.play();
+    }
+}
+
+// Event Listeners
+streamUrlInput.addEventListener('change', (e) => {
+    initializePlayer(e.target.value);
+});
+
+qualitySelector.addEventListener('change', (e) => {
+    hls.currentLevel = parseInt(e.target.value);
+});
+
+m3uFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const content = e.target.result;
+            const channels = parseM3U(content);
+            populateChannelList(channels);
+        };
+        reader.readAsText(file);
+    }
+});
+
+loadM3uUrlBtn.addEventListener('click', () => {
+    const url = m3uUrlInput.value.trim();
+    if (url) {
+        loadM3UFromUrl(url);
+    }
+});
+
+// Error handling
+hls.on(Hls.Events.ERROR, function (event, data) {
+    if (data.fatal) {
+        switch(data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+                console.log('Network error, trying to recover...');
+                hls.startLoad();
+                break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+                console.log('Media error, trying to recover...');
+                hls.recoverMediaError();
+                break;
+            default:
+                console.log('Unrecoverable error');
+                hls.destroy();
+                break;
+        }
+    }
+});
+</script>
+
+</body>
+</html>
